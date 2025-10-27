@@ -11,16 +11,21 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String         @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String         @unique
   emailVerified DateTime?
   image         String?
   password      String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   accounts      Account[]
   sessions      Session[]
+  prompts       Prompt[]
+  workflows     Workflow[]
+  pinnedPrompts PinnedPrompt[]
+  tags          Tag[]
+  categories    Category[]
 
   @@map("users")
 }
@@ -62,4 +67,167 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+// ============================================
+// AI Prompt Lab Core Models
+// ============================================
+
+model Prompt {
+  id              String         @id @default(cuid())
+  title           String
+  description     String?        @db.Text
+  content         String         @db.Text
+  version         Int            @default(1)
+  userId          String         @map("user_id")
+  categoryId      String?        @map("category_id")
+  isPinned        Boolean        @default(false) @map("is_pinned")
+  isArchived      Boolean        @default(false) @map("is_archived")
+  metadata        Json?          // For storing additional custom metadata
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tags            PromptTag[]
+  workflowSteps   WorkflowStep[]
+  pinnedBy        PinnedPrompt[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([isPinned])
+  @@index([createdAt])
+  @@map("prompts")
+}
+
+model Workflow {
+  id          String         @id @default(cuid())
+  name        String
+  description String?        @db.Text
+  userId      String         @map("user_id")
+  isActive    Boolean        @default(true) @map("is_active")
+  isArchived  Boolean        @default(false) @map("is_archived")
+  metadata    Json?          // For storing workflow execution history, etc.
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps       WorkflowStep[]
+  tags        WorkflowTag[]
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("workflows")
+}
+
+model WorkflowStep {
+  id          String   @id @default(cuid())
+  workflowId  String   @map("workflow_id")
+  promptId    String?  @map("prompt_id")
+  order       Int
+  name        String
+  description String?  @db.Text
+  promptText  String?  @db.Text // Inline prompt if no promptId
+  config      Json?    // Step-specific configuration
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  prompt      Prompt?  @relation(fields: [promptId], references: [id], onDelete: SetNull)
+
+  @@unique([workflowId, order])
+  @@index([workflowId])
+  @@index([promptId])
+  @@map("workflow_steps")
+}
+
+model Tag {
+  id          String       @id @default(cuid())
+  name        String
+  color       String?      // Hex color for UI display
+  userId      String       @map("user_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompts     PromptTag[]
+  workflows   WorkflowTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("tags")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  color       String?  // Hex color for UI display
+  icon        String?  // Icon name or emoji
+  userId      String   @map("user_id")
+  parentId    String?  @map("parent_id") // For nested categories
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent      Category?  @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryToCategory")
+  prompts     Prompt[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([parentId])
+  @@map("categories")
+}
+
+model PinnedPrompt {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  promptId  String   @map("prompt_id")
+  order     Int?     // For custom ordering of pinned items
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt    Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, promptId])
+  @@index([userId])
+  @@map("pinned_prompts")
+}
+
+// Join tables for many-to-many relationships
+model PromptTag {
+  promptId  String   @map("prompt_id")
+  tagId     String   @map("tag_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  prompt    Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([promptId, tagId])
+  @@index([promptId])
+  @@index([tagId])
+  @@map("prompt_tags")
+}
+
+model WorkflowTag {
+  workflowId String   @map("workflow_id")
+  tagId      String   @map("tag_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([workflowId, tagId])
+  @@index([workflowId])
+  @@index([tagId])
+  @@map("workflow_tags")
 }

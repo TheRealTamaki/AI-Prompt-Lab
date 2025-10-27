@@ -2,27 +2,35 @@
 
 A comprehensive prompt management system designed for content creators who need to efficiently organize, store, and retrieve their AI prompts and JSON configurations.
 
-## Current Status: v0.1.0 - User Authentication Module
+## Current Status: v0.2.0 - Complete Database Schema
 
-The first module of AI Prompt Lab is now complete! Users can register, login, and access a protected dashboard.
+The foundation of AI Prompt Lab is now complete! Authentication is functional and the complete database schema for all features has been designed and implemented.
 
 ## Features
 
-### Implemented (v0.1.0)
-- User registration with validation
-- Secure login with email/password
-- Password hashing with bcrypt
-- JWT-based session management
-- Protected routes and dashboard
-- Responsive UI with Tailwind CSS
-- PostgreSQL database with Prisma ORM
-- Full TypeScript support
+### Implemented (v0.2.0)
+- **User Authentication** (v0.1.0)
+  - User registration with validation
+  - Secure login with email/password
+  - Password hashing with bcrypt
+  - JWT-based session management
+  - Protected routes and dashboard
+
+- **Complete Database Schema** (v0.2.0)
+  - Prompt storage with versioning and metadata
+  - Multi-step workflow support with ordered steps
+  - Hierarchical category system with nesting
+  - Tag system for flexible organization
+  - Pin/favorite system for quick access
+  - Comprehensive relationships and data integrity
+  - Performance-optimized indexes
+  - Full TypeScript type safety with Prisma
 
 ### Coming Soon
-- Prompt management (CRUD operations)
-- Multi-step workflow functionality
-- Prompt favoriting/pinning
-- Full-text search across prompts
+- Prompt management UI (CRUD operations)
+- Workflow builder interface
+- Tag and category management
+- Full-text search implementation
 - RICECO framework prompt generator
 - Claude API integration
 - Import/export functionality
@@ -142,7 +150,9 @@ AI-Prompt-Lab/
 │   ├── auth.ts                   # NextAuth configuration
 │   └── prisma.ts                 # Prisma client singleton
 ├── prisma/                       # Database schema
-│   └── schema.prisma             # Prisma schema definition
+│   └── schema.prisma             # Prisma schema definition (12 models)
+├── docs/                         # Documentation
+│   └── DATABASE_SCHEMA.md        # Comprehensive schema documentation
 ├── types/                        # TypeScript type definitions
 │   └── next-auth.d.ts            # NextAuth custom types
 ├── .env.local                    # Environment variables (git-ignored)
@@ -176,24 +186,68 @@ After logging in, you'll see:
 
 ## Database Schema
 
-### User Model
+The complete database schema includes 12 models organized into three categories:
+
+### Authentication Models (4)
+- **User**: Core user authentication and profile
+- **Account**: OAuth provider integrations (NextAuth)
+- **Session**: User session management (NextAuth)
+- **VerificationToken**: Email verification tokens (NextAuth)
+
+### Core Application Models (8)
+- **Prompt**: AI prompts with versioning, metadata, and organization
+- **Workflow**: Multi-step workflows with execution tracking
+- **WorkflowStep**: Individual ordered steps within workflows
+- **Tag**: Flexible labeling system for prompts and workflows
+- **Category**: Hierarchical categorization with nesting support
+- **PinnedPrompt**: User favorites for quick access
+- **PromptTag**: Many-to-many prompt-tag associations
+- **WorkflowTag**: Many-to-many workflow-tag associations
+
+### Key Features
+- **20+ Foreign Key Relationships** for data integrity
+- **25+ Performance Indexes** for fast queries
+- **Hierarchical Categories** with self-referencing relationships
+- **Flexible Tagging** with many-to-many relationships
+- **Version Tracking** for prompt iterations
+- **JSON Metadata** fields for extensibility
+- **Soft Deletes** via archive flags
+- **Cascade Deletes** for proper cleanup
+
+### Schema Example (Prompt Model)
 
 ```prisma
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
+model Prompt {
+  id              String         @id @default(cuid())
+  title           String
+  description     String?        @db.Text
+  content         String         @db.Text
+  version         Int            @default(1)
+  userId          String         @map("user_id")
+  categoryId      String?        @map("category_id")
+  isPinned        Boolean        @default(false)
+  isArchived      Boolean        @default(false)
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user            User           @relation(fields: [userId], references: [id])
+  category        Category?      @relation(fields: [categoryId], references: [id])
+  tags            PromptTag[]
+  workflowSteps   WorkflowStep[]
+  pinnedBy        PinnedPrompt[]
 }
 ```
 
-See `prisma/schema.prisma` for the complete schema including Account, Session, and VerificationToken models.
+For comprehensive documentation including:
+- Visual schema diagrams
+- Detailed field descriptions
+- Relationship mapping
+- Performance optimization tips
+- Example queries
+- Migration instructions
+
+**See: [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)**
 
 ## API Endpoints
 
@@ -314,34 +368,52 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 ## Roadmap
 
-### v0.2.0 - Prompt Management
-- [ ] Create, read, update, delete prompts
-- [ ] Prompt metadata (title, description, tags)
-- [ ] Prompt versioning
+### v0.1.0 - User Authentication ✅
+- [x] User registration with validation
+- [x] Secure login with email/password
+- [x] JWT-based session management
+- [x] Protected routes and dashboard
 
-### v0.3.0 - Workflows
+### v0.2.0 - Complete Database Schema ✅
+- [x] Prompt model with versioning and metadata
+- [x] Workflow and WorkflowStep models
+- [x] Tag and Category models with relationships
+- [x] PinnedPrompt model for favorites
+- [x] Performance-optimized indexes
+- [x] Comprehensive documentation
+
+### v0.3.0 - Prompt Management UI
+- [ ] Create, read, update, delete prompts
+- [ ] Prompt editor with syntax highlighting
+- [ ] Prompt metadata management
+- [ ] Prompt versioning UI
+- [ ] Prompt list with filtering
+
+### v0.4.0 - Workflows UI
 - [ ] Multi-step workflow creation
+- [ ] Workflow builder interface
 - [ ] Workflow step management
 - [ ] Workflow execution
 
-### v0.4.0 - Organization Features
-- [ ] Prompt favoriting/pinning
-- [ ] Tags and categories
-- [ ] Full-text search
+### v0.5.0 - Organization Features
+- [ ] Prompt favoriting/pinning UI
+- [ ] Tag management interface
+- [ ] Category management with nesting
+- [ ] Full-text search implementation
 
-### v0.5.0 - RICECO Generator
+### v0.6.0 - RICECO Generator
 - [ ] RICECO framework implementation
 - [ ] Prompt template generation
 - [ ] Framework customization
 
-### v0.6.0 - Claude Integration
+### v0.7.0 - Claude Integration
 - [ ] Claude API integration
-- [ ] Prompt testing
-- [ ] Response handling
+- [ ] Prompt testing interface
+- [ ] Response handling and display
 
-### v0.7.0 - Import/Export
-- [ ] JSON export
-- [ ] JSON import
+### v0.8.0 - Import/Export
+- [ ] JSON export functionality
+- [ ] JSON import with validation
 - [ ] Bulk operations
 
 ## License

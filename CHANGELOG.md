@@ -5,6 +5,197 @@ All notable changes to the AI Prompt Lab project will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-10-27
+
+### Added - Complete Database Schema
+
+#### Core Data Models
+- **Prompt Model**: Comprehensive prompt storage with:
+  - Title, description, and content fields
+  - Version tracking for prompt iterations
+  - User ownership with foreign key relationship
+  - Optional category assignment
+  - Pin and archive status flags
+  - JSON metadata field for custom data
+  - Timestamps for creation and updates
+  - Indexes on userId, categoryId, isPinned, and createdAt
+
+- **Workflow Model**: Multi-step workflow support with:
+  - Name and description fields
+  - User ownership
+  - Active and archived status flags
+  - JSON metadata for execution history
+  - Timestamps for tracking
+  - Indexes on userId and isActive
+
+- **WorkflowStep Model**: Individual workflow steps with:
+  - Parent workflow reference
+  - Optional prompt reference (can use existing prompts)
+  - Step ordering system
+  - Name and description fields
+  - Inline prompt text option (when not using existing prompt)
+  - JSON config field for step-specific settings
+  - Unique constraint on [workflowId, order]
+  - Indexes on workflowId and promptId
+
+- **Tag Model**: Labeling system with:
+  - Name field
+  - Optional color for UI customization
+  - User ownership
+  - Timestamps
+  - Unique constraint on [userId, name]
+  - Many-to-many relationships with Prompts and Workflows
+
+- **Category Model**: Hierarchical organization with:
+  - Name, description fields
+  - Optional color and icon
+  - User ownership
+  - Self-referencing parent relationship for nesting
+  - Timestamps
+  - Unique constraint on [userId, name]
+  - Support for nested category structures
+
+- **PinnedPrompt Model**: Quick access favorites with:
+  - User and prompt references
+  - Optional custom ordering
+  - Creation timestamp
+  - Unique constraint on [userId, promptId]
+
+#### Join Tables
+- **PromptTag**: Many-to-many relationship between Prompts and Tags
+  - Composite primary key [promptId, tagId]
+  - Indexes on both foreign keys
+  - Creation timestamp
+
+- **WorkflowTag**: Many-to-many relationship between Workflows and Tags
+  - Composite primary key [workflowId, tagId]
+  - Indexes on both foreign keys
+  - Creation timestamp
+
+#### Relationships & Data Integrity
+- **User Relations**: Updated User model to include:
+  - One-to-many with Prompts
+  - One-to-many with Workflows
+  - One-to-many with Tags
+  - One-to-many with Categories
+  - One-to-many with PinnedPrompts
+
+- **Cascade Deletes**: Configured for data integrity:
+  - User deletion cascades to all owned entities
+  - Workflow deletion cascades to WorkflowSteps
+  - Tag deletion cascades to PromptTag and WorkflowTag
+  - Prompt deletion cascades to PinnedPrompts and PromptTag
+
+- **Null on Delete**: Graceful handling:
+  - Category deletion sets Prompt.categoryId to NULL
+  - Prompt deletion sets WorkflowStep.promptId to NULL
+
+#### Performance Optimizations
+- **Strategic Indexes**: Added indexes for:
+  - All foreign key relationships
+  - Status flags (isPinned, isActive, isArchived)
+  - Time-based queries (createdAt)
+  - Hierarchical queries (parentId)
+  - Join table optimization
+
+- **Database Constraints**:
+  - Unique constraints preventing duplicate data
+  - Foreign key constraints ensuring referential integrity
+  - Composite unique keys on join tables
+
+#### Documentation
+- **DATABASE_SCHEMA.md**: Comprehensive 500+ line documentation including:
+  - Visual schema diagram
+  - Detailed entity descriptions
+  - Field-by-field documentation
+  - Relationship mapping
+  - Index strategy explanation
+  - Data integrity rules
+  - JSON metadata examples
+  - Migration commands
+  - Performance optimization tips
+  - Example queries
+  - Database size estimation
+  - Backup strategy
+
+#### Schema Features
+- **Flexible Prompt Storage**: Support for rich metadata via JSON fields
+- **Workflow Versatility**: Steps can reference existing prompts or contain inline text
+- **Hierarchical Categories**: Nested categories via self-referencing relationship
+- **Tag System**: Reusable tags with optional colors for visual organization
+- **Version Tracking**: Built-in versioning for prompts
+- **Archive Support**: Soft delete functionality via isArchived flags
+- **Pin/Favorite System**: Quick access to frequently used prompts
+
+### Technical Details
+
+#### Database Tables Created (8 new tables)
+1. `prompts` - Stores AI prompts with metadata
+2. `workflows` - Stores multi-step workflows
+3. `workflow_steps` - Individual steps in workflows
+4. `tags` - Labels for organization
+5. `categories` - Hierarchical categorization
+6. `pinned_prompts` - User favorites
+7. `prompt_tags` - Prompt-Tag associations
+8. `workflow_tags` - Workflow-Tag associations
+
+#### Schema Statistics
+- **Total Models**: 12 (4 auth + 8 core)
+- **Total Relationships**: 20+ foreign key relationships
+- **Total Indexes**: 25+ performance indexes
+- **Many-to-Many Relations**: 2 (Prompt-Tag, Workflow-Tag)
+- **Self-Referencing Relations**: 1 (Category hierarchy)
+
+#### Storage Estimates (per 1,000 records)
+- Prompts: ~2-5MB
+- Workflows: ~100KB
+- WorkflowSteps: ~500KB
+- Tags: ~20KB
+- Categories: ~30KB
+
+#### File Structure
+```
+prisma/
+└── schema.prisma         (Updated with 8 new models, 230+ lines)
+docs/
+└── DATABASE_SCHEMA.md    (New comprehensive documentation)
+```
+
+### Migration Instructions
+
+To apply the new schema:
+
+```bash
+# Generate Prisma Client with new models
+npx prisma generate
+
+# Create migration
+npx prisma migrate dev --name add_prompt_workflow_schema
+
+# (Optional) Seed database with sample data
+npm run db:seed
+
+# View database in Prisma Studio
+npx prisma studio
+```
+
+### Breaking Changes
+
+None - This is additive to the existing authentication schema.
+
+### Future Considerations
+
+Planned enhancements for future versions:
+- Full-text search indexes for prompt content
+- Prompt version history table
+- Workflow execution logging
+- Shared prompts between users
+- Team collaboration features
+- Claude API integration configurations
+- RICECO template storage
+
+---
+
 ## [0.1.0] - 2025-10-27
 
 ### Added - User Authentication Module
